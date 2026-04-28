@@ -64,12 +64,29 @@ jobs:
       - name: Commit state.json
         if: steps.gate.outputs.skip != 'true'
         run: |
+          set -e
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add state/state.json
           if git diff --cached --quiet; then
             echo "no state change"
-          else
-            git commit -m "chore(state): update at $(date -u +%Y-%m-%dT%H:%MZ)"
-            git push
+            exit 0
           fi
+          git commit -m "chore(state): update at $(date -u +%Y-%m-%dT%H:%MZ)"
+
+          # 別経路からの push と競合した場合、rebase してリトライ。
+          # state.json で衝突したら最新（こちらのコミット）を優先する。
+          for attempt in 1 2 3; do
+            if git push; then
+              echo "pushed on attempt $attempt"
+              exit 0
+            fi
+            echo "push rejected on attempt $attempt; rebasing and retrying"
+            git pull --rebase --strategy-option=theirs origin main || {
+              echo "rebase failed; aborting"
+              git rebase --abort || true
+              exit 1
+            }
+          done
+          echo "push still failing after 3 attempts"
+          exit 1
