@@ -8,10 +8,15 @@ from pathlib import Path
 import pytest
 
 from scripts import check
-from scripts.fetcher import ENDPOINT
+from scripts.fetcher import ENDPOINT, SLOT_DETAIL_ENDPOINT
 from scripts.notifier import NTFY_BASE
 from scripts.state import JST
 from tests.conftest import load_fixture
+
+
+def _mock_slot_detail(rm, fixture_name="slots_full.json"):
+    """fetch_slot_detail のレスポンスをモック。"""
+    rm.post(SLOT_DETAIL_ENDPOINT, json=load_fixture(fixture_name))
 
 TOPIC = "test-integration-topic"
 NOW = datetime(2026, 4, 28, 6, 5, 12, tzinfo=JST)  # 07:00 ヘルスチェック時刻より前
@@ -32,6 +37,7 @@ def test_first_run_full_writes_state_no_notification(
 ):
     monkeypatch.setenv("NTFY_TOPIC", TOPIC)
     requests_mock.post(ENDPOINT, json=load_fixture("full.json"))
+    _mock_slot_detail(requests_mock, "slots_full.json")
     requests_mock.post(NTFY_BASE, json={"id": "x"})
 
     state_path = tmp_path / "state.json"
@@ -51,6 +57,7 @@ def test_full_to_available_sends_urgent(
 ):
     monkeypatch.setenv("NTFY_TOPIC", TOPIC)
     requests_mock.post(ENDPOINT, json=load_fixture("available.json"))
+    _mock_slot_detail(requests_mock, "slots_one_open.json")
     requests_mock.post(NTFY_BASE, json={"id": "x"})
 
     state_path = tmp_path / "state.json"
@@ -86,6 +93,7 @@ def test_dry_run_does_not_post_to_ntfy(
 ):
     monkeypatch.setenv("NTFY_TOPIC", TOPIC)
     requests_mock.post(ENDPOINT, json=load_fixture("available.json"))
+    _mock_slot_detail(requests_mock, "slots_one_open.json")
     requests_mock.post(NTFY_BASE, json={"id": "x"})
 
     state_path = tmp_path / "state.json"
@@ -173,6 +181,7 @@ def test_last_day_5_7_still_runs(
 ):
     monkeypatch.setenv("NTFY_TOPIC", TOPIC)
     requests_mock.post(ENDPOINT, json=load_fixture("full.json"))
+    _mock_slot_detail(requests_mock, "slots_full.json")
     requests_mock.post(NTFY_BASE, json={"id": "x"})
 
     state_path = tmp_path / "state.json"
@@ -187,6 +196,7 @@ def test_daily_health_check_at_7am(
 ):
     monkeypatch.setenv("NTFY_TOPIC", TOPIC)
     requests_mock.post(ENDPOINT, json=load_fixture("full.json"))
+    _mock_slot_detail(requests_mock, "slots_full.json")
     requests_mock.post(NTFY_BASE, json={"id": "x"})
 
     state_path = tmp_path / "state.json"

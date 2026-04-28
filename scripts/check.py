@@ -11,7 +11,7 @@ from pathlib import Path
 if __name__ == "__main__" and __package__ is None:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from scripts import fetcher, notifier, parser  # noqa: E402
+from scripts import fetcher, notifier, parser, summary  # noqa: E402
 from scripts.log import log_event  # noqa: E402
 from scripts.state import (  # noqa: E402
     JST,
@@ -66,6 +66,8 @@ def run(args: argparse.Namespace, now: datetime | None = None) -> int:
     )
 
     observed = None
+    target_entry = None
+    slots: list[parser.Slot] = []
     try:
         payload = fetcher.fetch(target_date)
         results_count = len(payload.get("results", [])) if isinstance(payload, dict) else 0
@@ -75,8 +77,46 @@ def run(args: argparse.Namespace, now: datetime | None = None) -> int:
             "target_entry",
             **parser.summarize_target_entry(target_entry),
         )
-        observed = parser.parse(payload, target_date)
-        log_event("parse_ok", status=observed)
+
+        # 時間スロット詳細を取得（target_entry に session_cd / service_cd があれば）
+        if target_entry and target_entry.get("session_cd") and target_entry.get("service_cd"):
+            try:
+                slot_payload = fetcher.fetch_slot_detail(
+                    service_cd=target_entry["service_cd"],
+                    session_cd=target_entry["session_cd"],
+                    target_date=target_date,
+                )
+                slots = parser.parse_slots(slot_payload)
+                log_event(
+                    "slots_parsed",
+                    total=len(slots),
+                    ordable=sum(1 for s in slots if s.ordable),
+                )
+                for s in slots:
+                    log_event(
+                        "slot",
+                        start=s.start_time,
+                        end=s.end_time,
+                        ordable=s.ordable,
+                        icon=s.icon,
+                    )
+            except (fetcher.FetchError, parser.ParserError) as e:
+                # 時間詳細取得が失敗しても、日サマリで判定継続
+                log_event(
+                    "slot_detail_skipped",
+                    level="WARNING",
+                    error_type=type(e).__name__,
+                    error=str(e),
+                )
+                slots = []
+
+        # 状態判定: 時間スロットが取れていればそれを最優先、無ければ日サマリ
+        if slots:
+            observed = parser.status_from_slots(slots)
+            log_event("parse_ok", status=observed, source="hourly_slots")
+        else:
+            observed = parser.parse(payload, target_date)
+            log_event("parse_ok", status=observed, source="day_summary")
     except (fetcher.FetchError, parser.ParserError) as e:
         log_event(
             "check_failed",
@@ -109,6 +149,17 @@ def run(args: argparse.Namespace, now: datetime | None = None) -> int:
             new_state = mark_health_check_sent(new_state, now)
 
     save_state(args.state_path, new_state)
+
+    # GitHub Actions の run page に Markdown サマリを出す
+    md = summary.build_markdown(
+        target_date=target_date,
+        target_entry=target_entry,
+        slots=slots,
+        overall_status=new_state.last_status,
+        last_change_at=new_state.last_change_at,
+    )
+    summary.write_step_summary(md)
+
     log_event(
         "check_end",
         new_status=new_state.last_status,

@@ -2,7 +2,14 @@ from datetime import date
 
 import pytest
 
-from scripts.parser import ParserError, find_target_entry, parse, summarize_target_entry
+from scripts.parser import (
+    ParserError,
+    find_target_entry,
+    parse,
+    parse_slots,
+    status_from_slots,
+    summarize_target_entry,
+)
 from tests.conftest import load_fixture
 
 TARGET = date(2026, 5, 8)
@@ -94,3 +101,48 @@ def test_summarize_target_entry_strips_title_html():
 
 def test_summarize_target_entry_none():
     assert summarize_target_entry(None) == {"found": False}
+
+
+def test_parse_slots_all_full():
+    payload = load_fixture("slots_full.json")
+    slots = parse_slots(payload)
+    assert len(slots) == 3
+    assert all(not s.ordable for s in slots)
+    assert slots[0].start_time == "08:30"
+    assert slots[0].end_time == "09:00"
+    assert "fa-times" in slots[0].icon
+    assert status_from_slots(slots) == "full"
+
+
+def test_parse_slots_one_open_returns_available():
+    payload = load_fixture("slots_one_open.json")
+    slots = parse_slots(payload)
+    assert len(slots) == 3
+    ordable = [s for s in slots if s.ordable]
+    assert len(ordable) == 1
+    assert ordable[0].start_time == "09:00"
+    assert "fa-circle" in ordable[0].icon
+    assert status_from_slots(slots) == "available"
+
+
+def test_parse_slots_empty_data():
+    payload = load_fixture("slots_empty.json")
+    slots = parse_slots(payload)
+    assert slots == []
+    assert status_from_slots(slots) == "full"
+
+
+def test_parse_slots_empty_string_data():
+    slots = parse_slots({"data": ""})
+    assert slots == []
+
+
+def test_parse_slots_bad_payload_raises():
+    with pytest.raises(ParserError):
+        parse_slots("not a dict")  # type: ignore[arg-type]
+    with pytest.raises(ParserError):
+        parse_slots({"data": 123})
+
+
+def test_status_from_empty_slots_is_full():
+    assert status_from_slots([]) == "full"
