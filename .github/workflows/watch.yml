@@ -1,0 +1,75 @@
+name: watch
+
+on:
+  schedule:
+    # 毎時5分（毎時0分は GitHub Actions が混雑するため避ける）
+    - cron: '5 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '通知送信を抑止する'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: watch
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 監視期間終了判定 (JST 2026-05-08 以降は停止、最終実行は 5/7)
+        id: gate
+        run: |
+          if [ "$(TZ=Asia/Tokyo date +%Y%m%d)" -ge "20260508" ]; then
+            echo "監視期間終了"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Python
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        if: steps.gate.outputs.skip != 'true'
+        run: pip install -r requirements.txt
+
+      - name: Run check
+        if: steps.gate.outputs.skip != 'true'
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            python -m scripts.check --dry-run
+          else
+            python -m scripts.check
+          fi
+
+      - name: Commit state.json
+        if: steps.gate.outputs.skip != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state/state.json
+          if git diff --cached --quiet; then
+            echo "no state change"
+          else
+            git commit -m "chore(state): update at $(date -u +%Y-%m-%dT%H:%MZ)"
+            git push
+          fi

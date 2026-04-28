@@ -167,7 +167,7 @@ Body:
   検知時刻: 2026-04-28 09:05 JST
 ```
 
-### 6.3 ヘルスチェック（low、毎週日曜）
+### 6.3 ヘルスチェック（low、毎日 8:00 JST）
 
 ```http
 POST https://ntfy.sh/{TOPIC}
@@ -180,6 +180,8 @@ Body:
   最終チェック: 2026-04-28 08:05 JST
   現在の状態: full
 ```
+
+判定: 8:00 JST 以降に実行され、かつ同日中にまだ送っていない場合に1回だけ送る。
 
 ### 6.4 監視エラー（high、3回連続失敗時）
 
@@ -222,9 +224,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: 5/8 を過ぎたら停止
+      - name: 5/7 を最終日として 5/8 以降は停止
         run: |
-          if [ "$(date -u +%Y%m%d)" -gt "20260508" ]; then
+          if [ "$(TZ=Asia/Tokyo date +%Y%m%d)" -ge "20260508" ]; then
             echo "監視期間終了"
             exit 0
           fi

@@ -43,16 +43,20 @@
 
 ## 実装上の重要事項
 
-### 着手前に必ず確認すること
+### サイト実装形式（調査済み・確定）
 
-予約ページが SSR か CSR か、5/8 のデータがどこから来るかは **未確認**。
-Claude Code は以下をまず実施すること:
+予約ページは **CSR**。HTML に 5/8 の文字列は出現せず、jQuery 版 FullCalendar が以下の内部 API を叩いて描画している:
 
-1. `curl` または `requests` で URL を取得し、HTML に「2026-05-08」「5/8」「5月8日」などが含まれるか確認
-2. 含まれない場合は CSR の可能性が高い → ユーザーに Chrome DevTools の Network タブで内部APIを特定するよう依頼
-3. 内部APIが見つかれば JSON 経由でアクセスする方針に変更
+- **エンドポイント:** `POST https://eipro.jp/takachiho1/eventCalendars/search`
+- **認証:** 不要（Cookie / CSRF トークン無しで JSON が返る）
+- **リクエスト（form-urlencoded）:**
+  - `data[conds][ServiceView][max_session_dateOver]` … 期間開始 (`YYYY-MM-DD`)
+  - `data[conds][ServiceView][min_session_dateUnder]` … 期間終了 (`YYYY-MM-DD`)
+  - `calendar_view_name=month`、`calendar_type=month`
+- **レスポンス:** `{"results": [...], "errors": [], ...}`。各エントリは `service_date` (`YYYY/MM/DD`)、`ordable` (bool)、`color`、`title`(HTML) などを持つ
+- **判定ロジック:** `service_date == "2026/05/08"` のエントリで `ordable: true` なら "available"、それ以外（`false` or エントリ無し）は "full"
 
-**未確認のままパース実装を始めない。** ユーザーに確認を取ること。
+サイト仕様変更時は `tests/fixtures/{available,full,error,missing_target}.json` を更新し parser を修正すること。
 
 ### コーディング規約
 
@@ -90,10 +94,15 @@ Claude Code は以下をまず実施すること:
 ## 開発ループの推奨
 
 1. `docs/` を読む
-2. ユーザーに「サイトの実装形式（SSR/CSR、API有無）」を確認
-3. fetcher / parser を fixture ベースのテスト先行で実装
-4. state machine を実装（テスト4パターン全通り）
-5. notifier をテストトピックで動作確認
-6. workflow yaml を書く
-7. ローカルで `python scripts/check.py --dry-run` 成功
-8. テストトピックで E2E 確認 → 本番トピックに切り替え
+2. fixture を更新（仕様変更があれば）
+3. fetcher / parser を fixture ベースのテスト先行で修正
+4. state machine を変更する場合は遷移マトリクスのテストを追加
+5. ローカルで `python -m scripts.check --dry-run` 成功
+6. テストトピックで E2E 確認 → 本番トピックに切り替え
+
+## 実装上の確定事項（参考）
+
+- 起動コマンドは `python -m scripts.check`（モジュール実行）。`python scripts/check.py` でも動くようパスブートストラップを入れている
+- ログは UTF-8 固定（`sys.stdout.reconfigure(encoding="utf-8")`）。Windows コンソールでは表示が化けるが、ファイル出力と Actions ログでは正常
+- API 取得失敗は 5xx/タイムアウトで指数バックオフ 3 回（1s, 2s, 4s）、4xx は即 `FetchError`
+- ntfy 送信失敗は無限ループ回避のためログ出力のみで握りつぶす（spec §8 準拠）
