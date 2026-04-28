@@ -68,7 +68,13 @@ def run(args: argparse.Namespace, now: datetime | None = None) -> int:
     observed = None
     try:
         payload = fetcher.fetch(target_date)
-        log_event("fetch_ok")
+        results_count = len(payload.get("results", [])) if isinstance(payload, dict) else 0
+        log_event("fetch_ok", results_count=results_count)
+        target_entry = parser.find_target_entry(payload, target_date)
+        log_event(
+            "target_entry",
+            **parser.summarize_target_entry(target_entry),
+        )
         observed = parser.parse(payload, target_date)
         log_event("parse_ok", status=observed)
     except (fetcher.FetchError, parser.ParserError) as e:
