@@ -16,7 +16,30 @@ def test_available_payload_urgent():
     assert p.tags == ["rotating_light", "boat"]
     assert p.click == "https://eipro.jp/takachiho1/eventCalendars/index"
     assert DETECTED in p.message
+    # スロット情報無しでも URL は本文に含まれる
+    assert "https://eipro.jp/takachiho1/eventCalendars/index" in p.message
     assert p.actions and p.actions[0]["action"] == "view"
+
+
+def test_available_payload_includes_open_slots():
+    n = Notification(
+        kind=NotificationKind.AVAILABLE_DETECTED,
+        detected_at=DETECTED,
+        open_slots=[("09:00", "09:30"), ("13:00", "13:30")],
+        total_slots=16,
+    )
+    p = build_payload(n)
+    assert "空きスロット (2/16)" in p.message
+    assert "・09:00-09:30" in p.message
+    assert "・13:00-13:30" in p.message
+    assert "急いで予約" in p.message
+    assert "https://eipro.jp/takachiho1/eventCalendars/index" in p.message
+
+
+def test_back_to_full_includes_url():
+    n = Notification(kind=NotificationKind.BACK_TO_FULL, detected_at=DETECTED)
+    p = build_payload(n)
+    assert "https://eipro.jp/takachiho1/eventCalendars/index" in p.message
 
 
 def test_back_to_full_payload_default():

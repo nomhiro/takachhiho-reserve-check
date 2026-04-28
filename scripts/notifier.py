@@ -45,9 +45,18 @@ def build_payload(notification: Notification) -> NtfyPayload:
     detected = notification.detected_at
 
     if kind == NotificationKind.AVAILABLE_DETECTED:
+        lines = [f"検知時刻: {detected}"]
+        if notification.open_slots:
+            n = len(notification.open_slots)
+            total = notification.total_slots or n
+            lines.append(f"\n空きスロット ({n}/{total}):")
+            for start, end in notification.open_slots:
+                lines.append(f"・{start}-{end}")
+        lines.append("\n急いで予約してください。")
+        lines.append(RESERVATION_URL)
         return NtfyPayload(
             title="🚨 高千穂峡 5/8 空き検知！",
-            message=f"検知時刻: {detected}\n急いで予約してください。",
+            message="\n".join(lines),
             priority="urgent",
             tags=["rotating_light", "boat"],
             click=RESERVATION_URL,
@@ -64,7 +73,11 @@ def build_payload(notification: Notification) -> NtfyPayload:
     if kind == NotificationKind.BACK_TO_FULL:
         return NtfyPayload(
             title="高千穂峡 5/8 満室に戻りました",
-            message=f"先ほどの空きは埋まったようです。\n検知時刻: {detected}",
+            message=(
+                "先ほどの空きは埋まったようです。\n"
+                f"検知時刻: {detected}\n"
+                f"{RESERVATION_URL}"
+            ),
             priority="default",
             tags=["x"],
         )

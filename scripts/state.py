@@ -28,6 +28,8 @@ class Notification:
     kind: NotificationKind
     detected_at: str
     current_status: Optional[str] = None
+    open_slots: Optional[list[tuple[str, str]]] = None
+    total_slots: Optional[int] = None
 
 
 @dataclass

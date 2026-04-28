@@ -130,11 +130,17 @@ def run(args: argparse.Namespace, now: datetime | None = None) -> int:
     new_state = decision.new_state
 
     if decision.notification is not None:
+        # urgent 通知には空きスロット詳細を載せる
+        if decision.notification.kind == NotificationKind.AVAILABLE_DETECTED and slots:
+            open_slots = [(s.start_time, s.end_time) for s in slots if s.ordable]
+            decision.notification.open_slots = open_slots
+            decision.notification.total_slots = len(slots)
         log_event(
             "notification_dispatch",
             kind=str(decision.notification.kind.value),
             prev_status=state.last_status,
             new_status=new_state.last_status,
+            open_slots_count=len(decision.notification.open_slots or []),
         )
         notifier.send(topic, decision.notification, dry_run=args.dry_run)
 
