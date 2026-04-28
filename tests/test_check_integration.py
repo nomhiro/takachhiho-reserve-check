@@ -14,7 +14,7 @@ from scripts.state import JST
 from tests.conftest import load_fixture
 
 TOPIC = "test-integration-topic"
-NOW = datetime(2026, 4, 28, 7, 5, 12, tzinfo=JST)
+NOW = datetime(2026, 4, 28, 6, 5, 12, tzinfo=JST)  # 07:00 ヘルスチェック時刻より前
 
 
 def _args(state_path: Path, dry_run: bool = False):
@@ -182,7 +182,7 @@ def test_last_day_5_7_still_runs(
     assert state_path.exists()
 
 
-def test_daily_health_check_at_8am(
+def test_daily_health_check_at_7am(
     tmp_path, monkeypatch, requests_mock
 ):
     monkeypatch.setenv("NTFY_TOPIC", TOPIC)
@@ -202,7 +202,7 @@ def test_daily_health_check_at_8am(
         encoding="utf-8",
     )
 
-    morning = datetime(2026, 4, 30, 8, 5, 0, tzinfo=JST)
+    morning = datetime(2026, 4, 30, 7, 5, 0, tzinfo=JST)
     rc = check.run(_args(state_path), now=morning)
     assert rc == 0
 

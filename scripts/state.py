@@ -169,11 +169,11 @@ def _decide_on_status(
     return Decision(new_state=new, notification=notification)
 
 
-HEALTH_CHECK_HOUR_JST = 8
+HEALTH_CHECK_HOUR_JST = 7
 
 
 def should_send_health_check(prev: State, now: datetime) -> bool:
-    """毎日 08:00 JST 以降、まだ今日送っていない場合 True。"""
+    """毎日 07:00 JST 以降、まだ今日送っていない場合 True。"""
     now_jst = now.astimezone(JST)
     if now_jst.hour < HEALTH_CHECK_HOUR_JST:
         return False

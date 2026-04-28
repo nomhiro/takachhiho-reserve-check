@@ -8,7 +8,7 @@
 - サイトの内部 JSON API (`POST /takachiho1/eventCalendars/search`) を叩いて 5/8 のエントリを取得
 - `ordable: true` なら **空きあり**、`false` または該当エントリ無しなら **満室**
 - 直前の状態（`state/state.json`）と比較し、変化したら ntfy.sh にプッシュ送信
-- 8:00 JST 以降の最初の実行で、その日のヘルスチェック通知（low）を送信
+- 7:00 JST 以降の最初の実行で、その日のヘルスチェック通知（low）を送信
 - state.json は変化があれば自動で `chore(state): update at ...` としてコミット&push
 - **5/7 を最終監視日**とし、5/8 以降は自動停止
 
@@ -29,7 +29,7 @@
 | 空きあり → 満室 | default | x | 高千穂峡 5/8 満室に戻りました |
 | 連続3回失敗 | high | warning | ⚠️ takachiho-watch エラー |
 | エラー復旧（→ 満室） | low | white_check_mark | 高千穂峡 5/8 監視復旧（満室） |
-| 毎日 8:00 JST | low | white_check_mark | takachiho-watch 稼働中 |
+| 毎日 7:00 JST | low | white_check_mark | takachiho-watch 稼働中 |
 
 ## クイックスタート
 

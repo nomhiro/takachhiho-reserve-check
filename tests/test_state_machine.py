@@ -144,34 +144,34 @@ def test_save_then_load_roundtrip(tmp_path):
     assert loaded == s
 
 
-def test_should_send_health_check_after_8am_jst_first_time():
-    morning = datetime(2026, 4, 30, 8, 5, 0, tzinfo=JST)
+def test_should_send_health_check_after_7am_jst_first_time():
+    morning = datetime(2026, 4, 30, 7, 5, 0, tzinfo=JST)
     s = _state("full", last_health=None)
     assert should_send_health_check(s, morning) is True
 
 
-def test_should_not_send_health_check_before_8am_jst():
-    early = datetime(2026, 4, 30, 7, 59, 0, tzinfo=JST)
+def test_should_not_send_health_check_before_7am_jst():
+    early = datetime(2026, 4, 30, 6, 59, 0, tzinfo=JST)
     s = _state("full")
     assert should_send_health_check(s, early) is False
 
 
 def test_should_not_send_if_already_sent_today():
     later = datetime(2026, 4, 30, 10, 5, 0, tzinfo=JST)
-    s = _state("full", last_health="2026-04-30T08:05:00+09:00")
+    s = _state("full", last_health="2026-04-30T07:05:00+09:00")
     assert should_send_health_check(s, later) is False
 
 
 def test_should_send_next_day():
-    next_day = datetime(2026, 5, 1, 8, 5, 0, tzinfo=JST)
-    s = _state("full", last_health="2026-04-30T08:05:00+09:00")
+    next_day = datetime(2026, 5, 1, 7, 5, 0, tzinfo=JST)
+    s = _state("full", last_health="2026-04-30T07:05:00+09:00")
     assert should_send_health_check(s, next_day) is True
 
 
-def test_health_check_at_exactly_8am_jst():
-    eight = datetime(2026, 4, 30, 8, 0, 0, tzinfo=JST)
+def test_health_check_at_exactly_7am_jst():
+    seven = datetime(2026, 4, 30, 7, 0, 0, tzinfo=JST)
     s = _state("full", last_health=None)
-    assert should_send_health_check(s, eight) is True
+    assert should_send_health_check(s, seven) is True
 
 
 def test_mark_health_check_sent_updates_only_health_field():
